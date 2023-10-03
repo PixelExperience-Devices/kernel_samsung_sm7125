@@ -26,6 +26,11 @@ struct clk * xo_chr = NULL;
 #include <linux/sti/abc_common.h>
 #endif
 
+#if defined(CONFIG_SM5714_WATER_DETECTION_ENABLE)
+#include <linux/usb/typec/sm/sm5714/sm5714_typec.h>
+extern struct device *ccic_device;
+#endif
+
 #if defined(CONFIG_KUNIT)
 #define __visible_for_testing
 #else
@@ -82,6 +87,9 @@ static enum power_supply_property sec_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+#if defined(CONFIG_SM5714_WATER_DETECTION_ENABLE)
+	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
+#endif
 };
 
 static enum power_supply_property sec_wireless_props[] = {
@@ -5417,6 +5425,9 @@ static int sec_usb_get_property(struct power_supply *psy,
 				union power_supply_propval *val)
 {
 	struct sec_battery_info *battery = power_supply_get_drvdata(psy);
+#if defined(CONFIG_SM5714_WATER_DETECTION_ENABLE)
+	struct sm5714_phydrv_data *usbpd_data;
+#endif
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -5429,6 +5440,19 @@ static int sec_usb_get_property(struct power_supply *psy,
 		/* mA -> uA */
 		val->intval = battery->pdata->charging_current[battery->cable_type].input_current_limit * 1000;
 		return 0;
+#if defined(CONFIG_SM5714_WATER_DETECTION_ENABLE)
+	case POWER_SUPPLY_PROP_MOISTURE_DETECTED: {
+		if (!ccic_device)
+			return -ENODATA;
+
+		usbpd_data = dev_get_drvdata(ccic_device);
+		if (!usbpd_data)
+			return -ENODATA;
+
+		val->intval = (usbpd_data->is_water_detect);
+		return 0;
+	}
+#endif
 	default:
 		return -EINVAL;
 	}
